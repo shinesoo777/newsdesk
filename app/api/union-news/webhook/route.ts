@@ -28,28 +28,39 @@ import { createClient } from "@/lib/supabase/server";
  */
 export async function POST(request: NextRequest) {
   try {
+    // 디버깅: 요청 로그
+    console.log("[Webhook] 요청 받음");
+
     // 인증 확인 (선택사항 - API 키로 보호 가능)
     const authHeader = request.headers.get("authorization");
     const apiKey = process.env.N8N_WEBHOOK_API_KEY;
 
     if (apiKey && authHeader !== `Bearer ${apiKey}`) {
+      console.log("[Webhook] 인증 실패");
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const body = await request.json();
+    console.log("[Webhook] 요청 본문:", JSON.stringify(body, null, 2));
+    
     const { items } = body;
 
     if (!items || !Array.isArray(items) || items.length === 0) {
+      console.log("[Webhook] items 배열이 없거나 비어있음");
       return NextResponse.json(
         { error: "items 배열이 필요합니다." },
         { status: 400 }
       );
     }
 
+    console.log("[Webhook] items 개수:", items.length);
+
     const supabase = await createClient();
     const {
       data: { user },
     } = await supabase.auth.getUser();
+    
+    console.log("[Webhook] 사용자:", user?.id || "없음");
 
     // 서비스 키를 사용하여 모든 사용자 데이터에 접근 (n8n에서 호출 시)
     // 또는 특정 user_id 사용
@@ -92,11 +103,31 @@ export async function POST(request: NextRequest) {
           continue;
         }
 
+        // user_id 결정
+        // n8n에서 호출할 때는 user_id를 명시적으로 전달해야 합니다
+        // 또는 body에 기본 user_id를 포함할 수 있습니다
+        let userId = item.user_id || body.default_user_id;
+        
+        if (!userId && user) {
+          userId = user.id;
+        }
+        
+        // user_id가 없으면 에러
+        if (!userId) {
+          results.failed.push({
+            item,
+            error: "user_id가 필요합니다. n8n에서 user_id를 전달하거나 body에 default_user_id를 포함해주세요.",
+          });
+          continue;
+        }
+
+        console.log("[Webhook] 저장 시도:", item.title, "user_id:", userId);
+
         // 데이터 저장
         const { error: insertError } = await serviceSupabase
           .from("union_news")
           .insert({
-            user_id: item.user_id || user?.id || "00000000-0000-0000-0000-000000000000", // 기본값 또는 n8n에서 전달
+            user_id: userId,
             title: item.title,
             event_type: item.event_type || "기타",
             association_name: item.association_name || null,
@@ -111,8 +142,11 @@ export async function POST(request: NextRequest) {
           });
 
         if (insertError) {
+          console.error("[Webhook] 저장 오류:", insertError);
           throw insertError;
         }
+        
+        console.log("[Webhook] 저장 성공:", item.title);
 
         results.success.push(item.title);
       } catch (error: any) {
