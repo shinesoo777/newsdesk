@@ -157,6 +157,12 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    console.log("[Webhook] 최종 결과:", {
+      success: results.success.length,
+      failed: results.failed.length,
+      failedDetails: results.failed,
+    });
+
     return NextResponse.json({
       success: true,
       message: `${results.success.length}개 저장 성공, ${results.failed.length}개 실패`,
