@@ -55,7 +55,10 @@ export async function POST(request: NextRequest) {
     // 또는 특정 user_id 사용
     const serviceSupabase = supabase;
 
-    const results = {
+    const results: {
+      success: string[];
+      failed: Array<{ item: any; error: string }>;
+    } = {
       success: [],
       failed: [],
     };
