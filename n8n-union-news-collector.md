@@ -26,10 +26,12 @@ Vercel 대시보드에서 다음 환경 변수 추가:
 [Schedule Trigger] 
   → [HTTP Request] (뉴스/공고 사이트 크롤링)
   → [Code] (데이터 파싱 및 정제)
-  → [Supabase] (데이터 저장)
-  → [IF] (중복 체크)
+  → [Code] (Webhook 형식으로 변환) ⚠️ 중요!
+  → [HTTP Request] (Next.js Webhook 호출)
   → [Notification] (선택사항)
 ```
+
+**⚠️ 중요**: Webhook으로 전송하기 전에 Code 노드에서 형식을 변환해야 합니다!
 
 ## 1단계: n8n 워크플로우 생성
 

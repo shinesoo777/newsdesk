@@ -38,7 +38,30 @@ Supabase Database
   ```
 
 #### 1.3 Body 형식 확인
-**올바른 형식:**
+
+**⚠️ 중요: n8n에서 Body 전송 방법**
+
+**올바른 방법 (Expression 모드 사용):**
+
+1. **Code 노드**에서 형식 변환:
+   ```javascript
+   return {
+     json: {
+       default_user_id: "your-user-uuid-here",
+       items: $input.all().map(item => item.json)
+     }
+   };
+   ```
+
+2. **HTTP Request 노드** 설정:
+   - **Send Body**: ✅ 활성화
+   - **Specify Body**: **"Expression"** 모드
+   - **Body**: `{{ $json }}`
+
+**❌ 잘못된 방법 (Body Parameters 사용):**
+- Body Parameters를 사용하면 형식이 깨져서 "items 배열이 필요합니다" 오류 발생
+
+**올바른 전송 형식:**
 ```json
 {
   "default_user_id": "your-user-uuid-here",
