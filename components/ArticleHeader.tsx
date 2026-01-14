@@ -4,7 +4,12 @@ import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 
-export default function ArticleHeader() {
+interface ArticleHeaderProps {
+  onShowDrafts?: () => void;
+  draftsCount?: number;
+}
+
+export default function ArticleHeader({ onShowDrafts, draftsCount = 0 }: ArticleHeaderProps) {
   const router = useRouter();
   const supabase = createClient();
   const [userEmail, setUserEmail] = useState("");
@@ -35,6 +40,14 @@ export default function ArticleHeader() {
           AI 기자 초안 도구
         </h1>
         <div className="flex items-center gap-4">
+          {onShowDrafts && (
+            <button
+              onClick={onShowDrafts}
+              className="rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700"
+            >
+              저장된 초안 ({draftsCount})
+            </button>
+          )}
           <div className="flex items-center gap-2">
             <span className="text-sm text-gray-700">기자 {userEmail} 기자</span>
             <button

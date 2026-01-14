@@ -26,6 +26,23 @@ export interface UnionNews {
   created_at: string;
 }
 
+export interface PolicyNews {
+  id: string;
+  title: string | null;
+  policy_type: string | null; // 정책 유형
+  agency_name: string | null; // 발표 기관
+  region_si: string | null; // 적용 지역 (시/도)
+  region_gu: string | null; // 적용 지역 (구/군)
+  published_date: string | null; // 정책 발표일
+  effective_date: string | null; // 정책 시행일
+  summary: string | null; // 정책 요약
+  content: string | null; // 정책 상세 내용
+  source_name: string | null; // 출처명
+  source_url: string | null; // 출처 URL
+  tags: string[] | null; // 태그 배열
+  created_at: string;
+}
+
 export interface Document {
   id: string;
   user_id: string;

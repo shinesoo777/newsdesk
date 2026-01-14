@@ -34,21 +34,38 @@ export async function POST(request: NextRequest) {
     }
 
     // n8n으로 요청 보내기
+    const requestBody = {
+      topic,
+      articleType: articleType || "정책기사",
+      userId: user.id,
+      userEmail: user.email,
+    };
+
+    console.log("[Generate Leads] n8n 호출:", {
+      url: n8nWebhookUrl,
+      body: requestBody,
+    });
+
     const response = await fetch(n8nWebhookUrl, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        topic,
-        articleType: articleType || "스트린이드",
-        userId: user.id,
-        userEmail: user.email,
-      }),
+      body: JSON.stringify(requestBody),
+    });
+
+    console.log("[Generate Leads] n8n 응답:", {
+      status: response.status,
+      statusText: response.statusText,
+      ok: response.ok,
     });
 
     if (!response.ok) {
-      throw new Error(`n8n webhook error: ${response.statusText}`);
+      const errorText = await response.text();
+      console.error("[Generate Leads] n8n 에러 상세:", errorText);
+      throw new Error(
+        `n8n webhook error (${response.status}): ${response.statusText}. ${errorText}`
+      );
     }
 
     const data = await response.json();

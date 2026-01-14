@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
 import ArticleHeader from "@/components/ArticleHeader";
 
 interface Lead {
@@ -28,11 +29,24 @@ interface ReviewerSuggestion {
   showDetails?: boolean;
 }
 
+interface ArticleDraft {
+  id: string;
+  created_at: string;
+  article_lead: string | null;
+  // topic과 article_type은 실제 테이블에 없을 수 있음
+  topic?: string | null;
+  article_type?: string | null;
+}
+
 export default function ArticlesPage() {
   const searchParams = useSearchParams();
+  const supabase = createClient();
   const [topic, setTopic] = useState("");
   const [loading, setLoading] = useState(false);
   const [articleType, setArticleType] = useState("스트린이드");
+  const [drafts, setDrafts] = useState<ArticleDraft[]>([]);
+  const [loadingDrafts, setLoadingDrafts] = useState(false);
+  const [showDraftsList, setShowDraftsList] = useState(false);
 
   // URL 쿼리 파라미터에서 주제 가져오기
   useEffect(() => {
@@ -41,6 +55,145 @@ export default function ArticlesPage() {
       setTopic(decodeURIComponent(topicParam));
     }
   }, [searchParams]);
+
+  // 초안 목록 불러오기 (모든 사용자의 최신 초안)
+  const loadDrafts = async () => {
+    setLoadingDrafts(true);
+    try {
+      // user_id 필터링 없이 모든 사용자의 최신 초안 가져오기
+      const { data, error } = await supabase
+        .from("article_drafts")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(20);
+
+      if (error) {
+        console.error("Supabase query error:", error);
+        console.error("Error details:", {
+          message: error.message,
+          code: error.code,
+          details: error.details,
+          hint: error.hint,
+        });
+        throw error;
+      }
+
+      console.log("Loaded drafts:", data?.length || 0);
+      setDrafts(data || []);
+
+      // 가장 최신 초안을 자동으로 화면에 불러오기
+      if (data && data.length > 0) {
+        const latestDraft = data[0];
+        await loadDraftData(latestDraft);
+      }
+    } catch (error: any) {
+      console.error("Error loading drafts:", error);
+      console.error("Error type:", typeof error);
+      console.error("Error keys:", Object.keys(error || {}));
+      if (error?.message) {
+        console.error("Error message:", error.message);
+      }
+      // 에러가 발생해도 빈 배열로 설정하여 UI가 깨지지 않도록
+      setDrafts([]);
+    } finally {
+      setLoadingDrafts(false);
+    }
+  };
+
+  // 초안 데이터를 화면에 표시하는 함수 (loadDraft와 동일한 로직)
+  const loadDraftData = async (data: any) => {
+    try {
+      // 주제 설정
+      if (data.topic) {
+        setTopic(data.topic);
+      }
+
+      // 리드 설정
+      if (data.leads && Array.isArray(data.leads)) {
+        setLeads(
+          data.leads.map((lead: any, index: number) => ({
+            id: index + 1,
+            text: typeof lead === "string" ? lead : lead.text || lead,
+          }))
+        );
+      }
+
+      // 팩트 설정
+      if (data.facts && Array.isArray(data.facts)) {
+        setFacts(
+          data.facts.map((fact: any, index: number) => ({
+            id: index + 1,
+            text: typeof fact === "string" ? fact : fact.text || fact,
+            source: typeof fact === "object" ? fact.source || "출처" : "출처",
+          }))
+        );
+      }
+
+      // 분석 설정
+      if (data.analysis) {
+        setAnalysis(data.analysis);
+      }
+
+      // 검증 리스트 설정
+      if (data.verify_list && Array.isArray(data.verify_list)) {
+        setVerifyList(
+          data.verify_list.map((item: any, index: number) => ({
+            id: index + 1,
+            text: typeof item === "string" ? item : item.text || item,
+            checked: typeof item === "object" ? item.checked || false : false,
+          }))
+        );
+      }
+
+      // 제안 설정
+      if (data.suggestions && Array.isArray(data.suggestions)) {
+        setSuggestions(
+          data.suggestions.map((item: any, index: number) => ({
+            id: index + 1,
+            text: typeof item === "string" ? item : item.text || item,
+            checked: typeof item === "object" ? item.checked || false : false,
+          }))
+        );
+      }
+
+      // 기사 내용 설정
+      setArticleContent({
+        lead: data.article_lead || "",
+        body: data.article_body || "",
+      });
+    } catch (error) {
+      console.error("Error loading draft data:", error);
+    }
+  };
+
+  // 초안 불러오기 (ID로 조회)
+  const loadDraft = async (draftId: string) => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from("article_drafts")
+        .select("*")
+        .eq("id", draftId)
+        .single();
+
+      if (error) throw error;
+
+      if (data) {
+        await loadDraftData(data);
+        setShowDraftsList(false);
+      }
+    } catch (error) {
+      console.error("Error loading draft:", error);
+      alert("초안을 불러오는데 실패했습니다.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 컴포넌트 마운트 시 초안 목록 불러오기
+  useEffect(() => {
+    loadDrafts();
+  }, []);
   
   // 리드 10개
   const [leads, setLeads] = useState<Lead[]>([]);
@@ -135,6 +288,35 @@ export default function ArticlesPage() {
           body: data.analysis || `${topic}의 본문 내용이 여기에 들어갑니다.`,
         });
       }
+
+      // Supabase에 초안 저장
+      try {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+
+        if (user) {
+          await supabase.from("article_drafts").insert({
+            user_id: user.id,
+            topic: topic,
+            article_type: articleType,
+            success: true,
+            leads: data.leads || [],
+            facts: data.facts || [],
+            analysis: data.analysis || "",
+            verify_list: data.verifyList || [],
+            suggestions: data.suggestions || [],
+            article_lead: data.leads?.[0] || "",
+            article_body: data.analysis || "",
+          });
+
+          // 초안 목록 새로고침
+          loadDrafts();
+        }
+      } catch (saveError) {
+        console.error("Error saving draft:", saveError);
+        // 저장 실패해도 계속 진행
+      }
     } catch (error: any) {
       console.error("Error generating draft:", error);
       alert(error.message || "리드 생성에 실패했습니다. 다시 시도해주세요.");
@@ -177,8 +359,80 @@ export default function ArticlesPage() {
 
   return (
     <div className="flex h-screen flex-col bg-gray-50">
+      <ArticleHeader
+        onShowDrafts={() => setShowDraftsList(!showDraftsList)}
+        draftsCount={drafts.length}
+      />
 
-     
+      {/* 초안 목록 모달 */}
+      {showDraftsList && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="w-full max-w-2xl rounded-lg bg-white shadow-xl">
+            <div className="flex items-center justify-between border-b border-gray-200 p-4">
+              <h2 className="text-lg font-semibold text-gray-900">저장된 초안</h2>
+              <button
+                onClick={() => setShowDraftsList(false)}
+                className="rounded-md p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+              >
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="max-h-96 overflow-y-auto p-4">
+              {loadingDrafts ? (
+                <div className="py-8 text-center text-gray-500">로딩 중...</div>
+              ) : drafts.length === 0 ? (
+                <div className="py-8 text-center text-gray-500">저장된 초안이 없습니다.</div>
+              ) : (
+                <div className="space-y-2">
+                  {drafts.map((draft) => (
+                    <div
+                      key={draft.id}
+                      onClick={() => loadDraft(draft.id)}
+                      className="cursor-pointer rounded-lg border border-gray-200 p-4 hover:bg-gray-50"
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <h3 className="font-medium text-gray-900">
+                            {draft.topic || draft.article_lead?.substring(0, 50) || "제목 없음"}
+                          </h3>
+                          {draft.article_lead && (
+                            <p className="mt-1 text-sm text-gray-600 line-clamp-2">
+                              {draft.article_lead}
+                            </p>
+                          )}
+                          <p className="mt-2 text-xs text-gray-500">
+                            {new Date(draft.created_at).toLocaleString("ko-KR")}
+                          </p>
+                        </div>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            loadDraft(draft.id);
+                          }}
+                          className="ml-4 rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700"
+                        >
+                          불러오기
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="border-t border-gray-200 p-4">
+              <button
+                onClick={loadDrafts}
+                disabled={loadingDrafts}
+                className="w-full rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+              >
+                {loadingDrafts ? "새로고침 중..." : "새로고침"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 메인 컨텐츠 */}
       <div className="flex flex-1 overflow-hidden">

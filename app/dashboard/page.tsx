@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { UnionNews } from "@/types/database";
+import { UnionNews, PolicyNews } from "@/types/database";
 import ArticleTopicCard from "@/components/ArticleTopicCard";
 import Link from "next/link";
 
@@ -34,21 +34,33 @@ export default function DashboardPage() {
         setUserEmail(user.email);
       }
 
-      // 최근 2주간 조합소식 가져오기
+      // 최근 2주간 조합소식 가져오기 (created_at 기준 - 새로 수집된 데이터)
       const startDate = new Date();
       startDate.setDate(startDate.getDate() - 14);
-      const startDateStr = startDate.toISOString().split("T")[0];
+      const startDateISO = startDate.toISOString();
 
-      const { data: news, error } = await supabase
-        .from("union_news")
-        .select("*")
-        .gte("event_date", startDateStr)
-        .order("event_date", { ascending: false });
+      // 조합소식과 정책 뉴스를 동시에 가져오기
+      const [unionNewsResult, policyNewsResult] = await Promise.all([
+        supabase
+          .from("union_news")
+          .select("*")
+          .gte("created_at", startDateISO)
+          .order("created_at", { ascending: false }),
+        supabase
+          .from("policy_news")
+          .select("*")
+          .gte("created_at", startDateISO)
+          .order("created_at", { ascending: false }),
+      ]);
 
-      if (error) throw error;
+      if (unionNewsResult.error) throw unionNewsResult.error;
+      if (policyNewsResult.error) throw policyNewsResult.error;
 
-      // 조합소식 데이터를 분석해서 기사 주제 생성
-      const generatedTopics = generateArticleTopics(news || []);
+      // 조합소식과 정책 뉴스 데이터를 분석해서 기사 주제 생성
+      const generatedTopics = generateArticleTopics(
+        unionNewsResult.data || [],
+        policyNewsResult.data || []
+      );
       setTopics(generatedTopics);
     } catch (error) {
       console.error("Error loading dashboard data:", error);
@@ -57,8 +69,13 @@ export default function DashboardPage() {
     }
   };
 
-  const generateArticleTopics = (news: UnionNews[]): ArticleTopic[] => {
-    if (news.length === 0) {
+  const generateArticleTopics = (
+    unionNews: UnionNews[],
+    policyNews: PolicyNews[]
+  ): ArticleTopic[] => {
+    const allNewsCount = unionNews.length + policyNews.length;
+
+    if (allNewsCount === 0) {
       return [
         {
           id: "1",
@@ -70,134 +87,230 @@ export default function DashboardPage() {
       ];
     }
 
-    // 지역별 그룹화
-    const regionGroups: Record<string, UnionNews[]> = {};
-    news.forEach((item) => {
-      const region = `${item.region_si} ${item.region_gu}`;
-      if (!regionGroups[region]) {
-        regionGroups[region] = [];
-      }
-      regionGroups[region].push(item);
-    });
-
-    // 이벤트 타입별 그룹화
-    const eventTypeGroups: Record<string, UnionNews[]> = {};
-    news.forEach((item) => {
-      if (!eventTypeGroups[item.event_type]) {
-        eventTypeGroups[item.event_type] = [];
-      }
-      eventTypeGroups[item.event_type].push(item);
-    });
-
     const topics: ArticleTopic[] = [];
 
-    // 1. 지역별 집중 분석 주제
-    Object.entries(regionGroups)
-      .filter(([_, items]) => items.length >= 2)
-      .slice(0, 3)
-      .forEach(([region, items], index) => {
-        topics.push({
-          id: `region-${index}`,
-          title: `${region} 재개발·재건축 현황과 전망`,
-          description: `${region} 지역의 최근 재개발·재건축 동향을 종합 분석하고, 주요 조합의 활동과 향후 전망을 다루는 기사`,
-          keywords: [region, "재개발", "재건축", "지역분석"],
-          relatedNewsCount: items.length,
+    // 정책 뉴스 기반 주제 생성
+    if (policyNews.length > 0) {
+      // 1. 정책 유형별 그룹화
+      const policyTypeGroups: Record<string, PolicyNews[]> = {};
+      policyNews.forEach((item) => {
+        if (item.policy_type) {
+          if (!policyTypeGroups[item.policy_type]) {
+            policyTypeGroups[item.policy_type] = [];
+          }
+          policyTypeGroups[item.policy_type].push(item);
+        }
+      });
+
+      Object.entries(policyTypeGroups)
+        .filter(([_, items]) => items.length >= 1)
+        .forEach(([policyType, items], index) => {
+          topics.push({
+            id: `policy-type-${index}`,
+            title: `${policyType} 정책 동향 분석`,
+            description: `최근 발표된 ${policyType} 관련 정책들을 분석하여 시장에 미치는 영향을 다루는 기사`,
+            keywords: [policyType, "정책", "분석", "재개발"],
+            relatedNewsCount: items.length,
+          });
         });
+
+      // 2. 발표 기관별 그룹화
+      const agencyGroups: Record<string, PolicyNews[]> = {};
+      policyNews.forEach((item) => {
+        if (item.agency_name) {
+          if (!agencyGroups[item.agency_name]) {
+            agencyGroups[item.agency_name] = [];
+          }
+          agencyGroups[item.agency_name].push(item);
+        }
       });
 
-    // 2. 이벤트 타입별 트렌드 분석
-    Object.entries(eventTypeGroups)
-      .filter(([_, items]) => items.length >= 2)
-      .forEach(([eventType, items], index) => {
-        topics.push({
-          id: `event-${index}`,
-          title: `재개발·재건축 ${eventType} 트렌드 분석`,
-          description: `최근 2주간 ${eventType} 관련 소식들을 분석하여 시장 동향과 특징을 파악하는 기사`,
-          keywords: [eventType, "트렌드", "분석", "재개발"],
-          relatedNewsCount: items.length,
+      Object.entries(agencyGroups)
+        .filter(([_, items]) => items.length >= 1)
+        .slice(0, 3)
+        .forEach(([agency, items], index) => {
+          topics.push({
+            id: `agency-${index}`,
+            title: `${agency} 정책 발표 동향`,
+            description: `${agency}에서 최근 발표한 부동산·재개발 관련 정책들을 종합 분석하는 기사`,
+            keywords: [agency, "정책", "발표", "재개발"],
+            relatedNewsCount: items.length,
+          });
         });
+
+      // 3. 지역별 정책 분석
+      const regionPolicyGroups: Record<string, PolicyNews[]> = {};
+      policyNews.forEach((item) => {
+        if (item.region_si) {
+          const region = item.region_gu ? `${item.region_si} ${item.region_gu}` : item.region_si;
+          if (!regionPolicyGroups[region]) {
+            regionPolicyGroups[region] = [];
+          }
+          regionPolicyGroups[region].push(item);
+        }
       });
 
-    // 3. 정책 및 제도 관련 주제
-    const policyKeywords = ["정책", "제도", "법안", "규제", "지원"];
-    const policyRelatedNews = news.filter((item) =>
-      policyKeywords.some(
-        (keyword) =>
-          item.title.includes(keyword) || item.summary?.includes(keyword)
-      )
-    );
+      Object.entries(regionPolicyGroups)
+        .filter(([_, items]) => items.length >= 1)
+        .slice(0, 3)
+        .forEach(([region, items], index) => {
+          topics.push({
+            id: `region-policy-${index}`,
+            title: `${region} 지역 정책 변화 분석`,
+            description: `${region} 지역의 최근 부동산·재개발 정책 변화를 분석하고 시장에 미치는 영향을 다루는 기사`,
+            keywords: [region, "정책", "지역분석", "재개발"],
+            relatedNewsCount: items.length,
+          });
+        });
 
-    if (policyRelatedNews.length > 0) {
-      topics.push({
-        id: "policy-1",
-        title: "재개발·재건축 정책 변화와 시장 영향",
-        description: "최근 정책 변화가 재개발·재건축 시장에 미치는 영향을 분석하고, 조합과 입주민에게 미치는 영향을 다루는 기사",
-        keywords: ["정책", "제도", "시장영향", "재개발"],
-        relatedNewsCount: policyRelatedNews.length,
-      });
-    }
-
-    // 4. 대규모 프로젝트 집중 분석
-    const largeProjects = news.filter((item) => {
-      const title = item.title.toLowerCase();
-      return (
-        title.includes("대규모") ||
-        title.includes("초대형") ||
-        title.includes("메가")
+      // 4. 최근 시행 예정 정책 분석 (1개 이상이면 생성)
+      const upcomingPolicies = policyNews.filter(
+        (item) => item.effective_date && new Date(item.effective_date) > new Date()
       );
-    });
-
-    if (largeProjects.length > 0) {
-      topics.push({
-        id: "large-1",
-        title: "대규모 재개발·재건축 프로젝트 현황",
-        description: "최근 진행 중인 대규모 재개발·재건축 프로젝트들의 현황과 특징을 분석하는 기사",
-        keywords: ["대규모", "프로젝트", "재개발", "재건축"],
-        relatedNewsCount: largeProjects.length,
-      });
+      if (upcomingPolicies.length >= 1) {
+        topics.push({
+          id: "upcoming-policies",
+          title: "곧 시행되는 재개발·재건축 정책 분석",
+          description: "최근 발표되어 곧 시행될 예정인 재개발·재건축 관련 정책들을 분석하고 시장 전망을 다루는 기사",
+          keywords: ["정책", "시행예정", "재개발", "재건축"],
+          relatedNewsCount: upcomingPolicies.length,
+        });
+      }
     }
 
-    // 5. 시공사 선정 트렌드
-    const contractorNews = news.filter(
-      (item) => item.event_type === "시공사선정"
-    );
-    if (contractorNews.length >= 2) {
-      topics.push({
-        id: "contractor-1",
-        title: "재개발·재건축 시공사 선정 동향",
-        description: "최근 시공사 선정 결과를 분석하여 건설사별 수주 동향과 시장 점유율 변화를 다루는 기사",
-        keywords: ["시공사", "선정", "건설사", "수주"],
-        relatedNewsCount: contractorNews.length,
+    // 기존 조합소식 기반 주제 생성 (기존 로직 유지)
+    if (unionNews.length > 0) {
+      // 지역별 그룹화
+      const regionGroups: Record<string, UnionNews[]> = {};
+      unionNews.forEach((item) => {
+        const region = `${item.region_si || ""} ${item.region_gu || ""}`.trim();
+        if (region) {
+          if (!regionGroups[region]) {
+            regionGroups[region] = [];
+          }
+          regionGroups[region].push(item);
+        }
       });
-    }
 
-    // 6. 입찰 동향 분석
-    const biddingNews = news.filter((item) => item.event_type === "입찰");
-    if (biddingNews.length >= 2) {
-      topics.push({
-        id: "bidding-1",
-        title: "재개발·재건축 입찰 시장 동향",
-        description: "최근 입찰 공고와 결과를 분석하여 시장 경쟁 상황과 입찰 동향을 파악하는 기사",
-        keywords: ["입찰", "경쟁", "시장동향"],
-        relatedNewsCount: biddingNews.length,
+      // 이벤트 타입별 그룹화
+      const eventTypeGroups: Record<string, UnionNews[]> = {};
+      unionNews.forEach((item) => {
+        if (item.event_type) {
+          if (!eventTypeGroups[item.event_type]) {
+            eventTypeGroups[item.event_type] = [];
+          }
+          eventTypeGroups[item.event_type].push(item);
+        }
       });
-    }
 
-    // 7. 종합 분석 주제
-    if (news.length >= 5) {
-      topics.push({
-        id: "comprehensive-1",
-        title: "최근 2주간 재개발·재건축 시장 종합 분석",
-        description: "최근 2주간의 재개발·재건축 관련 소식들을 종합하여 시장 전반의 동향과 특징을 분석하는 기사",
-        keywords: ["종합분석", "시장동향", "재개발", "재건축"],
-        relatedNewsCount: news.length,
+      // 1. 지역별 집중 분석 주제 (1개 이상이면 생성)
+      Object.entries(regionGroups)
+        .filter(([_, items]) => items.length >= 1)
+        .slice(0, 3)
+        .forEach(([region, items], index) => {
+          topics.push({
+            id: `region-${index}`,
+            title: `${region} 재개발·재건축 현황과 전망`,
+            description: `${region} 지역의 최근 재개발·재건축 동향을 종합 분석하고, 주요 조합의 활동과 향후 전망을 다루는 기사`,
+            keywords: [region, "재개발", "재건축", "지역분석"],
+            relatedNewsCount: items.length,
+          });
+        });
+
+      // 2. 이벤트 타입별 트렌드 분석 (1개 이상이면 생성)
+      Object.entries(eventTypeGroups)
+        .filter(([_, items]) => items.length >= 1)
+        .forEach(([eventType, items], index) => {
+          topics.push({
+            id: `event-${index}`,
+            title: `재개발·재건축 ${eventType} 트렌드 분석`,
+            description: `최근 2주간 ${eventType} 관련 소식들을 분석하여 시장 동향과 특징을 파악하는 기사`,
+            keywords: [eventType, "트렌드", "분석", "재개발"],
+            relatedNewsCount: items.length,
+          });
+        });
+
+      // 3. 대규모 프로젝트 집중 분석
+      const largeProjects = unionNews.filter((item) => {
+        const title = item.title?.toLowerCase() || "";
+        return (
+          title.includes("대규모") ||
+          title.includes("초대형") ||
+          title.includes("메가")
+        );
       });
+
+      if (largeProjects.length > 0) {
+        topics.push({
+          id: "large-1",
+          title: "대규모 재개발·재건축 프로젝트 현황",
+          description: "최근 진행 중인 대규모 재개발·재건축 프로젝트들의 현황과 특징을 분석하는 기사",
+          keywords: ["대규모", "프로젝트", "재개발", "재건축"],
+          relatedNewsCount: largeProjects.length,
+        });
+      }
+
+      // 4. 시공사 선정 트렌드 (1개 이상이면 생성)
+      const contractorNews = unionNews.filter(
+        (item) => item.event_type === "시공사선정"
+      );
+      if (contractorNews.length >= 1) {
+        topics.push({
+          id: "contractor-1",
+          title: "재개발·재건축 시공사 선정 동향",
+          description: "최근 시공사 선정 결과를 분석하여 건설사별 수주 동향과 시장 점유율 변화를 다루는 기사",
+          keywords: ["시공사", "선정", "건설사", "수주"],
+          relatedNewsCount: contractorNews.length,
+        });
+      }
+
+      // 5. 입찰 동향 분석 (1개 이상이면 생성)
+      const biddingNews = unionNews.filter((item) => item.event_type === "입찰");
+      if (biddingNews.length >= 1) {
+        topics.push({
+          id: "bidding-1",
+          title: "재개발·재건축 입찰 시장 동향",
+          description: "최근 입찰 공고와 결과를 분석하여 시장 경쟁 상황과 입찰 동향을 파악하는 기사",
+          keywords: ["입찰", "경쟁", "시장동향"],
+          relatedNewsCount: biddingNews.length,
+        });
+      }
+
+      // 6. 종합 분석 주제 (3개 이상이면 생성)
+      if (unionNews.length >= 3) {
+        topics.push({
+          id: "comprehensive-1",
+          title: "최근 2주간 재개발·재건축 시장 종합 분석",
+          description: "최근 2주간의 재개발·재건축 관련 소식들을 종합하여 시장 전반의 동향과 특징을 분석하는 기사",
+          keywords: ["종합분석", "시장동향", "재개발", "재건축"],
+          relatedNewsCount: unionNews.length,
+        });
+      }
     }
 
     // 중복 제거 및 정렬 (관련 뉴스 수가 많은 순)
     const uniqueTopics = Array.from(
       new Map(topics.map((topic) => [topic.title, topic])).values()
     ).sort((a, b) => b.relatedNewsCount - a.relatedNewsCount);
+
+    // 주제가 하나도 생성되지 않았지만 데이터가 있는 경우 기본 주제 제공
+    if (uniqueTopics.length === 0 && allNewsCount > 0) {
+      const newsType = unionNews.length > 0 && policyNews.length > 0
+        ? "조합소식과 부동산 정책"
+        : unionNews.length > 0
+        ? "조합소식"
+        : "부동산 정책";
+      
+      return [
+        {
+          id: "default-1",
+          title: `최근 ${newsType} 동향 분석`,
+          description: `최근 2주간의 ${newsType} 데이터를 분석하여 시장 동향과 특징을 파악하는 기사`,
+          keywords: ["재개발", "재건축", "시장동향", "분석"],
+          relatedNewsCount: allNewsCount,
+        },
+      ];
+    }
 
     return uniqueTopics.slice(0, 8); // 최대 8개 주제
   };
@@ -227,7 +340,7 @@ export default function DashboardPage() {
               📝 기사 작성 주제 추천
             </h2>
             <p className="mt-1 text-sm text-gray-600">
-              최근 2주간의 재개발·재건축 정책 관련 뉴스와 보도자료를 분석하여 추천하는 기사 주제입니다.
+              최근 2주간의 조합소식과 부동산 정책 뉴스를 분석하여 추천하는 기사 주제입니다. 새로고침할 때마다 최신 데이터를 반영합니다.
             </p>
           </div>
           <button
@@ -246,14 +359,25 @@ export default function DashboardPage() {
         ) : topics.length === 0 ? (
           <div className="rounded-lg border border-gray-200 bg-gray-50 p-8 text-center">
             <p className="text-gray-600">
-              최근 2주간의 조합소식이 없어 주제를 생성할 수 없습니다.
+              최근 2주간의 데이터가 분석에 충분하지 않아 주제를 생성하기 어렵습니다.
             </p>
-            <Link
-              href="/dashboard/union-news"
-              className="mt-4 inline-block text-sm text-blue-600 hover:text-blue-800"
-            >
-              조합소식 페이지로 이동 →
-            </Link>
+            <p className="mt-2 text-sm text-gray-500">
+              더 많은 조합소식이나 부동산 정책 뉴스가 필요합니다.
+            </p>
+            <div className="mt-4 flex justify-center gap-4">
+              <Link
+                href="/dashboard/union-news"
+                className="inline-block text-sm text-blue-600 hover:text-blue-800"
+              >
+                조합소식 페이지로 이동 →
+              </Link>
+              <Link
+                href="/dashboard/policy-news"
+                className="inline-block text-sm text-blue-600 hover:text-blue-800"
+              >
+                부동산 정책 페이지로 이동 →
+              </Link>
+            </div>
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
