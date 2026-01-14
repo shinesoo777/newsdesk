@@ -9,7 +9,8 @@ const eventTypeColors: Record<string, string> = {
 };
 
 export default function UnionNewsCard({ news }: { news: UnionNews }) {
-  const formatDate = (dateString: string) => {
+  const formatDate = (dateString: string | null) => {
+    if (!dateString) return "";
     const date = new Date(dateString);
     return date.toLocaleDateString("ko-KR", {
       year: "numeric",
@@ -21,31 +22,45 @@ export default function UnionNewsCard({ news }: { news: UnionNews }) {
   return (
     <div className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm transition-shadow hover:shadow-md">
       <div className="mb-3 flex items-start justify-between">
-        <span
-          className={`inline-block rounded px-2 py-1 text-xs font-semibold ${
-            eventTypeColors[news.event_type] || eventTypeColors.기타
-          }`}
-        >
-          [{news.event_type}]
-        </span>
-        <span className="text-sm text-gray-500">
-          {formatDate(news.event_date)}
-        </span>
+        {news.event_type && (
+          <span
+            className={`inline-block rounded px-2 py-1 text-xs font-semibold ${
+              eventTypeColors[news.event_type] || eventTypeColors.기타
+            }`}
+          >
+            [{news.event_type}]
+          </span>
+        )}
+        {news.event_date && (
+          <span className="text-sm text-gray-500">
+            {formatDate(news.event_date)}
+          </span>
+        )}
       </div>
 
-      <h3 className="mb-3 text-base font-semibold text-gray-900 leading-snug">
-        {news.title}
-      </h3>
+      {news.title && (
+        <h3 className="mb-3 text-base font-semibold text-gray-900 leading-snug">
+          {news.title}
+        </h3>
+      )}
 
-      <div className="mb-3 space-y-1 text-sm text-gray-600">
-        <p>
-          <span className="font-medium">{news.association_name}</span>{" "}
-          {news.district_name}
-        </p>
-        <p className="text-gray-500">
-          {news.region_si} {news.region_gu}
-        </p>
-      </div>
+      {(news.association_name || news.district_name || news.region_si || news.region_gu) && (
+        <div className="mb-3 space-y-1 text-sm text-gray-600">
+          {(news.association_name || news.district_name) && (
+            <p>
+              {news.association_name && (
+                <span className="font-medium">{news.association_name}</span>
+              )}{" "}
+              {news.district_name}
+            </p>
+          )}
+          {(news.region_si || news.region_gu) && (
+            <p className="text-gray-500">
+              {news.region_si} {news.region_gu}
+            </p>
+          )}
+        </div>
+      )}
 
       {news.summary && (
         <p className="mb-4 line-clamp-2 text-sm text-gray-700 leading-relaxed">
