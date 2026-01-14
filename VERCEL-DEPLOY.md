@@ -54,7 +54,38 @@ Vercel은 자동으로 다음 형식의 도메인을 생성:
 2. 원하는 도메인 추가
 3. DNS 설정 (Vercel 가이드 따르기)
 
-## 3. n8n에서 사용할 URL
+## 3. Supabase Redirect URLs 설정 (매직 링크 필수!)
+
+### 3.1 배포 도메인을 Supabase에 등록
+
+매직 링크가 올바르게 작동하려면 배포된 도메인을 Supabase에 등록해야 합니다:
+
+1. **Supabase 대시보드** 접속
+2. **Authentication** → **URL Configuration** 클릭
+3. **Redirect URLs** 섹션에서 **Add URL** 클릭
+4. 다음 URL들을 추가:
+   ```
+   https://your-project.vercel.app/auth/callback
+   https://your-project.vercel.app/dashboard
+   ```
+   또는 커스텀 도메인 사용 시:
+   ```
+   https://your-custom-domain.com/auth/callback
+   https://your-custom-domain.com/dashboard
+   ```
+5. **Save** 클릭
+
+⚠️ **중요**: 이 설정을 하지 않으면 매직 링크가 localhost로 리다이렉트됩니다!
+
+### 3.2 테스트
+
+1. 배포된 사이트에서 매직 링크 로그인 시도
+2. 이메일에서 링크 클릭
+3. 배포된 도메인으로 리다이렉트되는지 확인
+
+---
+
+## 4. n8n에서 사용할 URL
 
 ### 3.1 Webhook URL
 
@@ -76,7 +107,7 @@ https://your-custom-domain.com/api/union-news/webhook
 https://your-project.vercel.app/api/generate-leads
 ```
 
-## 4. 환경 변수 확인
+## 5. 환경 변수 확인
 
 ### 4.1 Vercel 대시보드에서 확인
 
@@ -90,7 +121,7 @@ https://your-project.vercel.app/api/generate-leads
 - `https://your-project.vercel.app` → 로그인 페이지 표시 확인
 - `https://your-project.vercel.app/api/union-news/webhook` → POST 요청 테스트
 
-## 5. 트러블슈팅
+## 6. 트러블슈팅
 
 ### 문제: 환경 변수가 적용되지 않음
 - **해결**: 환경 변수 추가 후 **Redeploy** 실행
@@ -104,7 +135,12 @@ https://your-project.vercel.app/api/generate-leads
 - **해결**: 환경 변수 값 확인
 - **해결**: Supabase 프로젝트가 활성화되어 있는지 확인
 
-## 6. 자동 배포 설정
+### 문제: 매직 링크가 localhost로 리다이렉트됨
+- **해결**: Supabase → Authentication → URL Configuration에서 배포 도메인 추가
+- **해결**: `https://your-project.vercel.app/auth/callback` URL이 Redirect URLs 목록에 있는지 확인
+- **해결**: 환경 변수 추가 후 Vercel에서 **Redeploy** 실행
+
+## 7. 자동 배포 설정
 
 ### 6.1 GitHub 연동
 
@@ -118,7 +154,7 @@ Vercel에서 배포 상태를 확인:
 - **Deployments** 탭에서 배포 이력 확인
 - 배포 성공/실패 알림
 
-## 7. n8n에서 사용하기
+## 8. n8n에서 사용하기
 
 ### 7.1 Webhook URL 설정
 

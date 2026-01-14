@@ -20,10 +20,13 @@ export default function LoginPage() {
 
     try {
       if (isMagicLink) {
+        // window.location.origin은 클라이언트에서 항상 올바른 도메인을 반환
+        const redirectUrl = `${window.location.origin}/auth/callback?next=/dashboard`;
+        
         const { error } = await supabase.auth.signInWithOtp({
           email,
           options: {
-            emailRedirectTo: `${window.location.origin}/auth/callback?next=/dashboard`,
+            emailRedirectTo: redirectUrl,
           },
         });
         if (error) throw error;
