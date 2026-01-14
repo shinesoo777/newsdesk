@@ -124,7 +124,7 @@ curl -X POST https://your-project.vercel.app/api/union-news/webhook \
 - [ ] Vercel 환경 변수도 올바르게 설정되었는가?
 - [ ] Vercel 재배포를 실행했는가?
 - [ ] Supabase에서 테이블이 생성되었는가?
-- [ ] user_id를 n8n에서 전달하고 있는가?
+- [ ] Body에 `items` 배열이 포함되어 있는가?
 - [ ] Vercel 함수 로그에서 에러가 없는가?
 
 ## 다음 단계
