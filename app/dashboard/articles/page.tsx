@@ -57,7 +57,7 @@ export default function ArticlesPage() {
   }, [searchParams]);
 
   // 초안 목록 불러오기 (모든 사용자의 최신 초안)
-  const loadDrafts = async () => {
+  const loadDrafts = async (autoLoadLatest: boolean = true) => {
     setLoadingDrafts(true);
     try {
       // user_id 필터링 없이 모든 사용자의 최신 초안 가져오기
@@ -81,8 +81,8 @@ export default function ArticlesPage() {
       console.log("Loaded drafts:", data?.length || 0);
       setDrafts(data || []);
 
-      // 가장 최신 초안을 자동으로 화면에 불러오기
-      if (data && data.length > 0) {
+      // 가장 최신 초안을 자동으로 화면에 불러오기 (옵션)
+      if (autoLoadLatest && data && data.length > 0) {
         const latestDraft = data[0];
         await loadDraftData(latestDraft);
       }
@@ -310,8 +310,8 @@ export default function ArticlesPage() {
             article_body: data.analysis || "",
           });
 
-          // 초안 목록 새로고침
-          loadDrafts();
+          // 초안 목록 새로고침 (자동 로드하지 않음 - 이미 화면에 표시됨)
+          loadDrafts(false);
         }
       } catch (saveError) {
         console.error("Error saving draft:", saveError);
@@ -423,7 +423,7 @@ export default function ArticlesPage() {
             </div>
             <div className="border-t border-gray-200 p-4">
               <button
-                onClick={loadDrafts}
+                onClick={() => loadDrafts(true)}
                 disabled={loadingDrafts}
                 className="w-full rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
               >
