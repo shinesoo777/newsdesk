@@ -129,6 +129,27 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzd
 
 💡 **참고**: 개발 환경에서는 `http://localhost:3000/*` 패턴으로 와일드카드 사용도 가능합니다.
 
+### 5.4 OTP 만료 시간 설정 (매직 링크 만료 방지)
+
+매직 링크가 너무 빨리 만료되는 문제를 방지하려면:
+
+1. Supabase 대시보드 → **Authentication** → **URL Configuration** 클릭
+2. **JWT expiry** 또는 **Token expiry** 설정 찾기
+3. 기본값은 보통 **3600초 (1시간)**입니다
+4. 필요시 더 긴 시간으로 설정 (예: **7200초 = 2시간** 또는 **86400초 = 24시간**)
+5. **Save** 클릭
+
+⚠️ **중요**: 
+- 보안을 위해 너무 긴 만료 시간은 권장하지 않습니다
+- 개발 환경에서는 2-24시간 정도가 적절합니다
+- 프로덕션 환경에서는 1-2시간을 권장합니다
+
+**또는 Email Template에서 만료 시간 안내:**
+
+1. **Authentication** → **Email Templates** 클릭
+2. **Magic Link** 템플릿 선택
+3. 이메일 본문에 "이 링크는 1시간 동안 유효합니다" 같은 안내 추가 가능
+
 ### 5.4 (선택) 이메일 템플릿 커스터마이징
 
 1. **Authentication** → **Email Templates** 메뉴

@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -11,7 +11,16 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const router = useRouter();
+  const searchParams = useSearchParams();
   const supabase = createClient();
+
+  // URL에서 에러 메시지 가져오기
+  useEffect(() => {
+    const error = searchParams.get("error");
+    if (error) {
+      setMessage(decodeURIComponent(error));
+    }
+  }, [searchParams]);
 
   const handleEmailLogin = async (e: React.FormEvent) => {
     e.preventDefault();
