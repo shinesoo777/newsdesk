@@ -183,7 +183,6 @@ for (const item of items) {
     region_si: regionSi,
     region_gu: regionGu,
     event_date: eventDate.toISOString().split('T')[0],
-    published_at: eventDate.toISOString().split('T')[0],
     summary: data.description || data.contentSnippet || title.substring(0, 200),
     source_name: data.source || '뉴스',
     source_url: data.link || data.url || '',
@@ -194,58 +193,61 @@ for (const item of items) {
 return newsItems.map(item => ({ json: item }));
 ```
 
-## 4단계: Supabase에 저장
+## 4단계: Webhook 형식으로 변환
 
-### 4.1 Supabase 노드 설정
+### 4.1 Code 노드 (Webhook 형식 변환) - ⚠️ 중요!
 
-1. **Supabase** 노드 추가 (또는 HTTP Request)
-2. 설정:
+**데이터 파싱 후 Webhook 전송 전에 Code 노드 추가:**
 
-**HTTP Request 노드 사용 시:**
+```javascript
+// 이전 노드에서 수집한 데이터
+const items = $input.all().map(item => item.json);
 
-```json
-{
-  "method": "POST",
-  "url": "https://YOUR_PROJECT.supabase.co/rest/v1/union_news",
-  "headers": {
-    "apikey": "YOUR_SUPABASE_ANON_KEY",
-    "Authorization": "Bearer YOUR_SUPABASE_ANON_KEY",
-    "Content-Type": "application/json",
-    "Prefer": "return=minimal"
-  },
-  "body": {
-    "user_id": "{{ $('Get User ID').item.json.userId }}",
-    "title": "{{ $json.title }}",
-    "event_type": "{{ $json.event_type }}",
-    "association_name": "{{ $json.association_name }}",
-    "district_name": "{{ $json.district_name }}",
-    "region_si": "{{ $json.region_si }}",
-    "region_gu": "{{ $json.region_gu }}",
-    "event_date": "{{ $json.event_date }}",
-    "published_at": "{{ $json.published_at }}",
-    "summary": "{{ $json.summary }}",
-    "source_name": "{{ $json.source_name }}",
-    "source_url": "{{ $json.source_url }}"
+// Webhook 형식으로 변환 (user_id 불필요)
+return {
+  json: {
+    items: items  // 수집한 뉴스 항목 배열
   }
-}
+};
 ```
 
-### 4.2 사용자 ID 가져오기
+**⚠️ 중요**: 
+- `user_id`는 더 이상 필요하지 않습니다
+- 조합소식은 모든 사용자가 공유하는 데이터입니다
+- `items`는 배열 형태로 전달되어야 함
 
-**HTTP Request** 노드로 Supabase에서 사용자 목록 가져오기:
+### 4.2 HTTP Request 노드 (Next.js Webhook 호출)
 
+**HTTP Request** 노드 설정:
+
+- **Method**: POST
+- **URL**: `https://your-project.vercel.app/api/union-news/webhook`
+- **Send Body**: ✅ 활성화
+- **Specify Body**: **"Expression"** 모드 선택
+- **Body**: `{{ $json }}`
+- **Headers**:
+  - `Content-Type: application/json`
+  - `Authorization: Bearer YOUR_API_KEY` (선택사항)
+
+**전송되는 형식:**
 ```json
 {
-  "method": "GET",
-  "url": "https://YOUR_PROJECT.supabase.co/rest/v1/users",
-  "headers": {
-    "apikey": "YOUR_SUPABASE_ANON_KEY",
-    "Authorization": "Bearer YOUR_SUPABASE_ANON_KEY"
-  }
+  "items": [
+    {
+      "title": "제목",
+      "event_type": "총회",
+      "event_date": "2024-01-15",
+      "association_name": "조합명",
+      "district_name": "구역명",
+      "region_si": "서울",
+      "region_gu": "강남구",
+      "summary": "요약",
+      "source_name": "출처",
+      "source_url": "https://..."
+    }
+  ]
 }
 ```
-
-또는 고정된 user_id 사용 (개인 사용자일 경우)
 
 ## 5단계: 중복 체크
 
@@ -372,8 +374,8 @@ JSON 형식으로 응답:
 ## 10단계: 트러블슈팅
 
 ### 문제: 데이터가 저장되지 않음
-- **해결**: Supabase RLS 정책 확인
-- **해결**: user_id가 올바른지 확인
+- **해결**: Supabase RLS 정책 확인 (이제 모든 사용자가 공유하므로 RLS가 활성화되어 있어야 함)
+- **해결**: Webhook URL이 올바른지 확인
 - **해결**: API 키 권한 확인
 
 ### 문제: 중복 데이터 저장
