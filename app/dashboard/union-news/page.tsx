@@ -42,7 +42,6 @@ export default function UnionNewsPage() {
       let query = supabase
         .from("union_news")
         .select("*")
-        .eq("user_id", user.id)
         .gte("event_date", startDateStr)
         .order("event_date", { ascending: false });
 

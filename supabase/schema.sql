@@ -15,15 +15,13 @@ CREATE TABLE IF NOT EXISTS articles (
 -- Union News 테이블
 CREATE TABLE IF NOT EXISTS union_news (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  title TEXT NOT NULL,
-  event_type TEXT NOT NULL CHECK (event_type IN ('총회', '입찰', '시공사선정', '기타')),
+  title TEXT,
+  event_type TEXT,
   association_name TEXT,
   district_name TEXT,
   region_si TEXT,
   region_gu TEXT,
-  event_date DATE NOT NULL,
-  published_at DATE,
+  event_date DATE,
   summary TEXT,
   source_name TEXT,
   source_url TEXT,
@@ -74,21 +72,22 @@ CREATE POLICY "Users can delete own articles"
   ON articles FOR DELETE
   USING (auth.uid() = user_id);
 
-CREATE POLICY "Users can view own union_news"
+-- Union News는 모든 사용자가 공유하는 데이터
+CREATE POLICY "Anyone can view union_news"
   ON union_news FOR SELECT
-  USING (auth.uid() = user_id);
+  USING (true);
 
-CREATE POLICY "Users can insert own union_news"
+CREATE POLICY "Anyone can insert union_news"
   ON union_news FOR INSERT
-  WITH CHECK (auth.uid() = user_id);
+  WITH CHECK (true);
 
-CREATE POLICY "Users can update own union_news"
+CREATE POLICY "Anyone can update union_news"
   ON union_news FOR UPDATE
-  USING (auth.uid() = user_id);
+  USING (true);
 
-CREATE POLICY "Users can delete own union_news"
+CREATE POLICY "Anyone can delete union_news"
   ON union_news FOR DELETE
-  USING (auth.uid() = user_id);
+  USING (true);
 
 CREATE POLICY "Users can view own documents"
   ON documents FOR SELECT
@@ -125,7 +124,6 @@ CREATE POLICY "Users can delete own settings"
 -- 인덱스 생성 (성능 최적화)
 CREATE INDEX IF NOT EXISTS idx_articles_user_id ON articles(user_id);
 CREATE INDEX IF NOT EXISTS idx_articles_created_at ON articles(created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_union_news_user_id ON union_news(user_id);
 CREATE INDEX IF NOT EXISTS idx_union_news_event_date ON union_news(event_date DESC);
 CREATE INDEX IF NOT EXISTS idx_union_news_region ON union_news(region_si, region_gu);
 CREATE INDEX IF NOT EXISTS idx_documents_user_id ON documents(user_id);

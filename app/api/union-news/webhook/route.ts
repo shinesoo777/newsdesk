@@ -18,13 +18,14 @@ import { createClient } from "@/lib/supabase/server";
  *       "region_si": "서울",
  *       "region_gu": "강남구",
  *       "event_date": "2024-01-15",
- *       "published_at": "2024-01-10",
  *       "summary": "요약",
  *       "source_name": "출처",
  *       "source_url": "https://..."
  *     }
  *   ]
  * }
+ * 
+ * 주의: user_id는 더 이상 필요하지 않습니다. 모든 사용자가 공유하는 데이터입니다.
  */
 export async function POST(request: NextRequest) {
   try {
@@ -56,15 +57,6 @@ export async function POST(request: NextRequest) {
     console.log("[Webhook] items 개수:", items.length);
 
     const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    
-    console.log("[Webhook] 사용자:", user?.id || "없음");
-
-    // 서비스 키를 사용하여 모든 사용자 데이터에 접근 (n8n에서 호출 시)
-    // 또는 특정 user_id 사용
-    const serviceSupabase = supabase;
 
     const results: {
       success: string[];
@@ -87,13 +79,13 @@ export async function POST(request: NextRequest) {
         }
 
         // 중복 체크 (title + event_date로)
-        const { data: existing } = await serviceSupabase
+        const { data: existing } = await supabase
           .from("union_news")
           .select("id")
           .eq("title", item.title)
           .eq("event_date", item.event_date)
           .limit(1)
-          .single();
+          .maybeSingle();
 
         if (existing) {
           results.failed.push({
@@ -103,39 +95,19 @@ export async function POST(request: NextRequest) {
           continue;
         }
 
-        // user_id 결정
-        // n8n에서 호출할 때는 user_id를 명시적으로 전달해야 합니다
-        // 또는 body에 기본 user_id를 포함할 수 있습니다
-        let userId = item.user_id || body.default_user_id;
-        
-        if (!userId && user) {
-          userId = user.id;
-        }
-        
-        // user_id가 없으면 에러
-        if (!userId) {
-          results.failed.push({
-            item,
-            error: "user_id가 필요합니다. n8n에서 user_id를 전달하거나 body에 default_user_id를 포함해주세요.",
-          });
-          continue;
-        }
+        console.log("[Webhook] 저장 시도:", item.title);
 
-        console.log("[Webhook] 저장 시도:", item.title, "user_id:", userId);
-
-        // 데이터 저장
-        const { error: insertError } = await serviceSupabase
+        // 데이터 저장 (user_id 제거됨)
+        const { error: insertError } = await supabase
           .from("union_news")
           .insert({
-            user_id: userId,
-            title: item.title,
-            event_type: item.event_type || "기타",
+            title: item.title || null,
+            event_type: item.event_type || null,
             association_name: item.association_name || null,
             district_name: item.district_name || null,
             region_si: item.region_si || null,
             region_gu: item.region_gu || null,
-            event_date: item.event_date,
-            published_at: item.published_at || item.event_date,
+            event_date: item.event_date || null,
             summary: item.summary || null,
             source_name: item.source_name || "n8n",
             source_url: item.source_url || null,

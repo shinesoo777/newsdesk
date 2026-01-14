@@ -13,18 +13,16 @@ export type EventType = "총회" | "입찰" | "시공사선정" | "기타";
 
 export interface UnionNews {
   id: string;
-  user_id: string;
-  title: string;
-  event_type: EventType;
-  association_name: string;
-  district_name: string;
-  region_si: string;
-  region_gu: string;
-  event_date: string;
-  published_at: string;
-  summary: string;
-  source_name: string;
-  source_url: string;
+  title: string | null;
+  event_type: EventType | null;
+  association_name: string | null;
+  district_name: string | null;
+  region_si: string | null;
+  region_gu: string | null;
+  event_date: string | null;
+  summary: string | null;
+  source_name: string | null;
+  source_url: string | null;
   created_at: string;
 }
 

@@ -64,7 +64,6 @@ Supabase Database
 **올바른 전송 형식:**
 ```json
 {
-  "default_user_id": "your-user-uuid-here",
   "items": [
     {
       "title": "제목",
@@ -78,9 +77,9 @@ Supabase Database
 ```
 
 **⚠️ 필수:**
-- `default_user_id` 또는 각 item에 `user_id` 포함
 - `items` 배열
 - 각 item에 `title`과 `event_date` 포함
+- `user_id`는 더 이상 필요하지 않습니다 (모든 사용자가 공유하는 데이터)
 
 ### 2. Webhook 응답 확인
 
@@ -145,18 +144,14 @@ n8n의 **HTTP Request** 노드 출력 확인:
 
 ### 문제 1: "user_id가 필요합니다" 에러
 
-**원인**: n8n에서 `user_id`를 전달하지 않음
+**⚠️ 업데이트**: 
+- `union_news` 테이블에서 `user_id` 컬럼이 제거되었습니다
+- 모든 사용자가 공유하는 데이터로 변경되었습니다
+- 이 오류는 더 이상 발생하지 않아야 합니다
 
-**해결**:
-1. Supabase에서 user_id 확인:
-   - **Authentication** → **Users** → UUID 복사
-2. n8n 워크플로우에서 Body에 추가:
-   ```json
-   {
-     "default_user_id": "복사한-uuid",
-     "items": [...]
-   }
-   ```
+**만약 이 오류가 발생한다면:**
+- Supabase 테이블 스키마가 업데이트되지 않았을 수 있습니다
+- `supabase/schema.sql` 파일을 Supabase SQL Editor에서 다시 실행하세요
 
 ### 문제 2: "items 배열이 필요합니다" 에러
 
