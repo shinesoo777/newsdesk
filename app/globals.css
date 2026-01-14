@@ -23,4 +23,24 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+  /* Windows Chrome 텍스트 렌더링 최적화 */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+/* 모든 텍스트 요소 선명도 개선 */
+* {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* 입력 필드 텍스트 선명도 개선 */
+input, textarea, select {
+  text-rendering: optimizeLegibility;
+}
+
+/* 카드 및 텍스트 컨테이너 선명도 개선 */
+div, p, span, h1, h2, h3, h4, h5, h6, label, button {
+  text-rendering: optimizeLegibility;
 }

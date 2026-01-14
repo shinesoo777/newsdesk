@@ -265,78 +265,149 @@ export default function ArticlesPage() {
 
       const data = await response.json();
 
-      // 리드 10개 설정
-      if (data.leads && Array.isArray(data.leads)) {
+      // n8n 응답 데이터가 있으면 즉시 화면에 표시
+      if (data.leads && Array.isArray(data.leads) && data.leads.length > 0) {
+        // 리드 10개 설정
         setLeads(
           data.leads.map((lead: string, index: number) => ({
             id: index + 1,
             text: lead,
           }))
         );
-      }
 
-      // FACT BOX 설정
-      if (data.facts && Array.isArray(data.facts)) {
-        setFacts(
-          data.facts.map((fact: any, index: number) => ({
-            id: index + 1,
-            text: fact.text || fact,
-            source: fact.source || "출처",
-          }))
-        );
-      }
+        // FACT BOX 설정
+        if (data.facts && Array.isArray(data.facts)) {
+          setFacts(
+            data.facts.map((fact: any, index: number) => ({
+              id: index + 1,
+              text: fact.text || fact,
+              source: fact.source || "출처",
+            }))
+          );
+        }
 
-      // ANALYSIS 설정
-      if (data.analysis) {
-        setAnalysis(data.analysis);
-      }
+        // ANALYSIS 설정
+        if (data.analysis) {
+          setAnalysis(data.analysis);
+        }
 
-      // VERIFY LIST 설정
-      if (data.verifyList && Array.isArray(data.verifyList)) {
-        setVerifyList(
-          data.verifyList.map((item: any, index: number) => ({
-            id: index + 1,
-            text: typeof item === "string" ? item : item.text,
-            checked: typeof item === "object" ? item.checked || false : false,
-          }))
-        );
-      }
+        // VERIFY LIST 설정
+        if (data.verifyList && Array.isArray(data.verifyList)) {
+          setVerifyList(
+            data.verifyList.map((item: any, index: number) => ({
+              id: index + 1,
+              text: typeof item === "string" ? item : item.text,
+              checked: typeof item === "object" ? item.checked || false : false,
+            }))
+          );
+        }
 
-      // 기사 초안 기본값 설정
-      if (data.leads && data.leads.length > 0) {
+        // 기사 초안 기본값 설정
         setArticleContent({
           lead: data.leads[0] || `${currentTopic}에 대한 기사 리드입니다.`,
           body: data.analysis || `${currentTopic}의 본문 내용이 여기에 들어갑니다.`,
         });
-      }
 
-      // Supabase에 초안 저장
-      try {
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
+        // 로딩 종료 (데이터가 화면에 표시됨)
+        setLoading(false);
 
-        if (user) {
-          await supabase.from("article_drafts").insert({
-            user_id: user.id,
-            topic: currentTopic,
-            article_type: articleType,
-            success: true,
-            leads: data.leads || [],
-            facts: data.facts || [],
-            analysis: data.analysis || "",
-            verify_list: data.verifyList || [],
-            suggestions: data.suggestions || [],
-            article_lead: data.leads?.[0] || "",
-            article_body: data.analysis || "",
-          });
+        // Supabase에 초안 저장 (백그라운드에서 처리, 실패해도 화면에는 이미 표시됨)
+        (async () => {
+          try {
+            const {
+              data: { user },
+            } = await supabase.auth.getUser();
 
-          // 초안 목록 새로고침 (자동 로드하지 않음 - 이미 화면에 표시됨)
-          loadDrafts(false);
-        }
-      } catch (saveError) {
-        console.error("Error saving draft:", saveError);
-        // 저장 실패해도 계속 진행
+            if (user) {
+              await supabase.from("article_drafts").insert({
+                user_id: user.id,
+                topic: currentTopic,
+                article_type: articleType,
+                success: true,
+                leads: data.leads || [],
+                facts: data.facts || [],
+                analysis: data.analysis || "",
+                verify_list: data.verifyList || [],
+                suggestions: data.suggestions || [],
+                article_lead: data.leads?.[0] || "",
+                article_body: data.analysis || "",
+              });
+
+              // 초안 목록 새로고침 (자동 로드하지 않음 - 이미 화면에 표시됨)
+              loadDrafts(false);
+            }
+          } catch (saveError) {
+            console.error("Error saving draft:", saveError);
+            // 저장 실패해도 화면에는 이미 데이터가 표시되어 있음
+          }
+        })();
+      } else {
+        // n8n 응답에 데이터가 없으면 Supabase에서 폴링하여 확인
+        // (n8n이 비동기로 Supabase에 저장하는 경우)
+        console.log("n8n 응답에 데이터가 없음, Supabase에서 폴링 시작...");
+        
+        // Supabase에서 최신 초안을 폴링하여 확인 (최대 60초)
+        const maxAttempts = 60;
+        let attempts = 0;
+        const pollInterval = setInterval(async () => {
+          attempts++;
+          
+          try {
+            const {
+              data: { user },
+            } = await supabase.auth.getUser();
+
+            if (!user) {
+              clearInterval(pollInterval);
+              setLoading(false);
+              return;
+            }
+
+            // 최신 초안 조회 (topic으로 필터링)
+            const { data: drafts, error } = await supabase
+              .from("article_drafts")
+              .select("*")
+              .eq("user_id", user.id)
+              .eq("topic", currentTopic)
+              .order("created_at", { ascending: false })
+              .limit(1)
+              .maybeSingle();
+
+            if (error) {
+              console.error("Polling error:", error);
+            }
+
+            if (drafts && drafts.leads && Array.isArray(drafts.leads) && drafts.leads.length > 0) {
+              // Supabase에서 데이터를 찾았으면 화면에 표시
+              await loadDraftData(drafts);
+              clearInterval(pollInterval);
+              setLoading(false);
+              return;
+            }
+
+            // 최대 시도 횟수에 도달하면 포기
+            if (attempts >= maxAttempts) {
+              clearInterval(pollInterval);
+              setLoading(false);
+              alert("초안 생성이 완료되지 않았습니다. 잠시 후 다시 시도해주세요.");
+            }
+          } catch (pollError) {
+            console.error("Polling error:", pollError);
+            if (attempts >= maxAttempts) {
+              clearInterval(pollInterval);
+              setLoading(false);
+            }
+          }
+        }, 1000); // 1초마다 확인
+
+        // 타임아웃 설정 (60초 후 자동 종료)
+        setTimeout(() => {
+          clearInterval(pollInterval);
+          if (loading) {
+            setLoading(false);
+            alert("초안 생성이 시간 초과되었습니다. 잠시 후 다시 시도해주세요.");
+          }
+        }, 60000);
       }
     } catch (error: any) {
       console.error("Error generating draft:", error);
@@ -347,7 +418,6 @@ export default function ArticlesPage() {
         { id: 1, text: `${currentTopic}에 대한 첫 번째 리드 제안입니다.` },
         { id: 2, text: `${currentTopic}의 핵심 내용을 다루는 두 번째 리드입니다.` },
       ]);
-    } finally {
       setLoading(false);
     }
   }, [topic, articleType, loading, supabase, loadDrafts]);
@@ -511,6 +581,11 @@ export default function ArticlesPage() {
                   key={lead.id}
                   className="cursor-pointer rounded border border-gray-200 p-3 text-sm hover:bg-gray-50"
                   onClick={() => setArticleContent({ ...articleContent, lead: lead.text })}
+                  style={{
+                    WebkitFontSmoothing: 'antialiased',
+                    MozOsxFontSmoothing: 'grayscale',
+                    textRendering: 'optimizeLegibility',
+                  }}
                 >
                   <span className="font-medium text-gray-700">{lead.id}.</span>{" "}
                   {lead.text}
