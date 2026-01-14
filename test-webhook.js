@@ -11,7 +11,7 @@
  */
 
 const testData = {
-  default_user_id: "YOUR_USER_ID_HERE", // Supabase에서 사용자 UUID로 교체
+  // user_id는 더 이상 필요하지 않습니다 (모든 사용자가 공유하는 데이터)
   items: [
     {
       title: "강남구 A구역 재개발 조합 총회 개최",
@@ -21,7 +21,6 @@ const testData = {
       region_si: "서울",
       region_gu: "강남구",
       event_date: "2024-01-15",
-      published_at: "2024-01-10",
       summary: "강남구 A구역 재개발조합이 오는 15일 총회를 개최한다고 발표했습니다.",
       source_name: "테스트",
       source_url: "https://example.com/news/1"
@@ -34,7 +33,6 @@ const testData = {
       region_si: "서울",
       region_gu: "서초구",
       event_date: "2024-01-20",
-      published_at: "2024-01-12",
       summary: "서초구 B구역 재건축 입찰 공고가 발표되었습니다.",
       source_name: "테스트",
       source_url: "https://example.com/news/2"

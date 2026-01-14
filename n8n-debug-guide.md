@@ -47,7 +47,6 @@ Supabase Database
    ```javascript
    return {
      json: {
-       default_user_id: "your-user-uuid-here",
        items: $input.all().map(item => item.json)
      }
    };
@@ -162,7 +161,6 @@ n8n의 **HTTP Request** 노드 출력 확인:
    ```javascript
    return {
      json: {
-       default_user_id: "your-user-id",
        items: $input.all().map(item => item.json)
      }
    };
@@ -218,7 +216,6 @@ curl로 직접 테스트:
 curl -X POST https://your-project.vercel.app/api/union-news/webhook \
   -H "Content-Type: application/json" \
   -d '{
-    "default_user_id": "YOUR_USER_ID",
     "items": [
       {
         "title": "테스트 조합소식",
@@ -257,9 +254,8 @@ curl -X POST https://your-project.vercel.app/api/union-news/webhook \
   ↓
 [Code] - 데이터 파싱
   ↓
-[Code] - user_id 추가 및 형식 변환
+[Code] - 형식 변환
   {
-    default_user_id: "your-user-id",
     items: [...]
   }
   ↓
@@ -278,7 +274,7 @@ curl -X POST https://your-project.vercel.app/api/union-news/webhook \
 
 - [ ] n8n 워크플로우가 실행됨
 - [ ] Webhook URL이 올바름
-- [ ] Body에 `default_user_id` 포함
+- [ ] Body에 `items` 배열 포함 (user_id 불필요)
 - [ ] Body에 `items` 배열 포함
 - [ ] 각 item에 `title`과 `event_date` 포함
 - [ ] Vercel 함수 로그에서 요청 확인

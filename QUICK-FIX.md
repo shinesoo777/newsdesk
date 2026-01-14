@@ -53,7 +53,6 @@ n8n 워크플로우에서 Webhook Body에 추가:
 
 ```json
 {
-  "default_user_id": "your-user-uuid-here",
   "items": [...]
 }
 ```
@@ -85,7 +84,6 @@ npm run dev
 curl -X POST http://localhost:3000/api/union-news/webhook \
   -H "Content-Type: application/json" \
   -d '{
-    "default_user_id": "YOUR_USER_ID",
     "items": [
       {
         "title": "테스트 조합소식",
@@ -104,7 +102,6 @@ curl -X POST http://localhost:3000/api/union-news/webhook \
 curl -X POST https://your-project.vercel.app/api/union-news/webhook \
   -H "Content-Type: application/json" \
   -d '{
-    "default_user_id": "YOUR_USER_ID",
     "items": [
       {
         "title": "테스트 조합소식",
@@ -134,6 +131,6 @@ curl -X POST https://your-project.vercel.app/api/union-news/webhook \
 
 1. 환경 변수 수정
 2. Vercel 재배포
-3. n8n 워크플로우에서 `default_user_id` 추가
+3. n8n 워크플로우에서 Body 형식 확인 (user_id 불필요)
 4. 테스트 실행
 5. Supabase에서 데이터 확인
