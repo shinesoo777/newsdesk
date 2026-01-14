@@ -55,7 +55,14 @@ ALTER TABLE union_news ENABLE ROW LEVEL SECURITY;
 ALTER TABLE documents ENABLE ROW LEVEL SECURITY;
 ALTER TABLE settings ENABLE ROW LEVEL SECURITY;
 
--- RLS 정책: 사용자는 자신의 데이터만 접근 가능
+-- Articles 테이블 RLS 정책
+-- 1. 기존 정책 제거
+DROP POLICY IF EXISTS "Users can view own articles" ON articles;
+DROP POLICY IF EXISTS "Users can insert own articles" ON articles;
+DROP POLICY IF EXISTS "Users can update own articles" ON articles;
+DROP POLICY IF EXISTS "Users can delete own articles" ON articles;
+
+-- 2. 정책 재생성
 CREATE POLICY "Users can view own articles"
   ON articles FOR SELECT
   USING (auth.uid() = user_id);
@@ -72,7 +79,18 @@ CREATE POLICY "Users can delete own articles"
   ON articles FOR DELETE
   USING (auth.uid() = user_id);
 
--- Union News는 모든 사용자가 공유하는 데이터
+-- Union News 테이블 RLS 정책 (모든 사용자가 공유)
+-- 1. 기존 정책 제거
+DROP POLICY IF EXISTS "Anyone can view union_news" ON union_news;
+DROP POLICY IF EXISTS "Anyone can insert union_news" ON union_news;
+DROP POLICY IF EXISTS "Anyone can update union_news" ON union_news;
+DROP POLICY IF EXISTS "Anyone can delete union_news" ON union_news;
+DROP POLICY IF EXISTS "Users can view own union_news" ON union_news;
+DROP POLICY IF EXISTS "Users can insert own union_news" ON union_news;
+DROP POLICY IF EXISTS "Users can update own union_news" ON union_news;
+DROP POLICY IF EXISTS "Users can delete own union_news" ON union_news;
+
+-- 2. 정책 재생성
 CREATE POLICY "Anyone can view union_news"
   ON union_news FOR SELECT
   USING (true);
@@ -89,6 +107,14 @@ CREATE POLICY "Anyone can delete union_news"
   ON union_news FOR DELETE
   USING (true);
 
+-- Documents 테이블 RLS 정책
+-- 1. 기존 정책 제거
+DROP POLICY IF EXISTS "Users can view own documents" ON documents;
+DROP POLICY IF EXISTS "Users can insert own documents" ON documents;
+DROP POLICY IF EXISTS "Users can update own documents" ON documents;
+DROP POLICY IF EXISTS "Users can delete own documents" ON documents;
+
+-- 2. 정책 재생성
 CREATE POLICY "Users can view own documents"
   ON documents FOR SELECT
   USING (auth.uid() = user_id);
@@ -105,6 +131,14 @@ CREATE POLICY "Users can delete own documents"
   ON documents FOR DELETE
   USING (auth.uid() = user_id);
 
+-- Settings 테이블 RLS 정책
+-- 1. 기존 정책 제거
+DROP POLICY IF EXISTS "Users can view own settings" ON settings;
+DROP POLICY IF EXISTS "Users can insert own settings" ON settings;
+DROP POLICY IF EXISTS "Users can update own settings" ON settings;
+DROP POLICY IF EXISTS "Users can delete own settings" ON settings;
+
+-- 2. 정책 재생성
 CREATE POLICY "Users can view own settings"
   ON settings FOR SELECT
   USING (auth.uid() = user_id);
