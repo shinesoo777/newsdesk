@@ -222,7 +222,20 @@ export default function ArticlesPage() {
       return;
     }
 
+    // 이미 로딩 중이면 중복 요청 방지
+    if (loading) {
+      return;
+    }
+
     setLoading(true);
+    
+    // 기존 데이터 초기화 (새 초안 생성 중임을 명확히 표시)
+    setLeads([]);
+    setFacts([]);
+    setAnalysis("");
+    setVerifyList([]);
+    setSuggestions([]);
+    setArticleContent({ lead: "", body: "" });
 
     try {
       // n8n Webhook을 통해 AI로 리드 생성
@@ -434,6 +447,27 @@ export default function ArticlesPage() {
         </div>
       )}
 
+      {/* 로딩 오버레이 */}
+      {loading && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="rounded-lg bg-white p-8 shadow-xl">
+            <div className="flex flex-col items-center gap-4">
+              <svg className="h-12 w-12 animate-spin text-blue-600" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              <div className="text-center">
+                <p className="text-lg font-semibold text-gray-900">AI가 초안을 생성하고 있습니다</p>
+                <p className="mt-2 text-sm text-gray-600">
+                  주제: <span className="font-medium">{topic}</span>
+                </p>
+                <p className="mt-1 text-xs text-gray-500">잠시만 기다려주세요...</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* 메인 컨텐츠 */}
       <div className="flex flex-1 overflow-hidden">
         {/* 왼쪽 패널: 리드 10개 */}
@@ -442,7 +476,12 @@ export default function ArticlesPage() {
             리드 10개 자동 생성
           </h2>
           <div className="space-y-2">
-            {leads.length === 0 ? (
+            {loading ? (
+              <div className="py-8 text-center">
+                <div className="inline-block h-6 w-6 animate-spin rounded-full border-2 border-blue-600 border-t-transparent"></div>
+                <p className="mt-2 text-sm text-gray-500">초안 생성 중...</p>
+              </div>
+            ) : leads.length === 0 ? (
               <p className="text-sm text-gray-500">
                 초안을 생성하면 리드가 표시됩니다.
               </p>
@@ -474,17 +513,30 @@ export default function ArticlesPage() {
                 value={topic}
                 onChange={(e) => setTopic(e.target.value)}
                 placeholder="기사 주제를 입력하세요"
-                className="flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                disabled={loading}
+                className="flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
                 onKeyPress={(e) => {
-                  if (e.key === "Enter") handleGenerateDraft();
+                  if (e.key === "Enter" && !loading) {
+                    handleGenerateDraft();
+                  }
                 }}
               />
               <button
                 onClick={handleGenerateDraft}
                 disabled={loading}
-                className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+                className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed min-w-[120px]"
               >
-                {loading ? "생성 중..." : "초안 생성 >"}
+                {loading ? (
+                  <span className="flex items-center gap-2">
+                    <svg className="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    생성 중...
+                  </span>
+                ) : (
+                  "초안 생성 >"
+                )}
               </button>
             </div>
           </div>
