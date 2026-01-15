@@ -52,7 +52,8 @@ export default function ArticlesPage() {
     show: boolean;
     message: string;
     draftId: string | null;
-  }>({ show: false, message: "", draftId: null });
+    type?: "info" | "success"; // 알림 타입 추가
+  }>({ show: false, message: "", draftId: null, type: "success" });
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // URL 쿼리 파라미터에서 주제 가져오기
@@ -240,7 +241,15 @@ export default function ArticlesPage() {
     }
 
     // 알림 닫기
-    setNotification({ show: false, message: "", draftId: null });
+    setNotification({ show: false, message: "", draftId: null, type: "success" });
+
+    // 초안 생성 시작 알림 표시
+    setNotification({
+      show: true,
+      message: `"${currentTopic}" 초안 생성을 시작했습니다. 완료되면 알림을 드리겠습니다.`,
+      draftId: null,
+      type: "info",
+    });
 
     try {
       // n8n Webhook을 통해 AI로 리드 생성 요청
@@ -347,6 +356,7 @@ export default function ArticlesPage() {
                   show: true,
                   message: `"${currentTopic}" 초안이 생성되었습니다. 클릭하여 불러오세요.`,
                   draftId: draft.id,
+                  type: "success",
                 });
                 return;
               }
@@ -499,32 +509,47 @@ export default function ArticlesPage() {
         </div>
       )}
 
-      {/* 알림 (초안 생성 완료) */}
+      {/* 알림 (초안 생성 시작/완료) */}
       {notification.show && (
         <div className="fixed top-4 right-4 z-50 animate-in slide-in-from-top-5">
           <div
-            className="cursor-pointer rounded-lg bg-blue-600 px-6 py-4 shadow-lg text-white hover:bg-blue-700 transition-colors"
+            className={`cursor-pointer rounded-lg px-6 py-4 shadow-lg text-white transition-colors ${
+              notification.type === "success"
+                ? "bg-blue-600 hover:bg-blue-700"
+                : "bg-gray-600 hover:bg-gray-700"
+            }`}
             onClick={async () => {
               if (notification.draftId) {
                 await loadDraft(notification.draftId);
-                setNotification({ show: false, message: "", draftId: null });
+                setNotification({ show: false, message: "", draftId: null, type: "success" });
               }
             }}
           >
             <div className="flex items-center gap-3">
-              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
+              {notification.type === "success" ? (
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              ) : (
+                <svg className="h-5 w-5 animate-spin" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+              )}
               <div>
-                <p className="font-semibold">초안 생성 완료</p>
-                <p className="text-sm text-blue-100">{notification.message}</p>
+                <p className="font-semibold">
+                  {notification.type === "success" ? "초안 생성 완료" : "초안 생성 중"}
+                </p>
+                <p className={`text-sm ${notification.type === "success" ? "text-blue-100" : "text-gray-200"}`}>
+                  {notification.message}
+                </p>
               </div>
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  setNotification({ show: false, message: "", draftId: null });
+                  setNotification({ show: false, message: "", draftId: null, type: "success" });
                 }}
-                className="ml-2 text-white hover:text-blue-200"
+                className="ml-2 text-white hover:opacity-70"
               >
                 <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
