@@ -313,6 +313,9 @@ export default function ArticlesPage() {
           lead: data.leads[0] || `${currentTopic}에 대한 기사 리드입니다.`,
           body: data.analysis || `${currentTopic}의 본문 내용이 여기에 들어갑니다.`,
         });
+
+        // 알림 닫기 (데이터가 화면에 표시되었으므로)
+        setNotification({ show: false, message: "", draftId: null, type: "success" });
       } else {
         // n8n 응답에 데이터가 없으면 Supabase에서 폴링 시작
         // (n8n이 비동기로 Supabase에 저장하는 경우)
